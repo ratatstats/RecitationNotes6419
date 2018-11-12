@@ -1,6 +1,12 @@
 \documentclass[12pt]{article}
 \usepackage{amsfonts, mathtools, mathrsfs, amssymb, graphicx, graphics, subfigure, fullpage, lscape,enumerate, multirow, natbib}
 
+\usepackage[bottom,flushmargin,hang,multiple]{footmisc}
+
+\makeatletter
+\def\blfootnote{\xdef\@thefnmark{}\@footnotetext}
+\makeatother
+
 \newcommand{\rank}{\ensuremath{\text{rank}}}
 \newcommand{\nullity}{\ensuremath{\text{nullity}}}
 
@@ -15,6 +21,8 @@
 \begin{document}
 
 \maketitle
+
+\blfootnote{Joy Yang, October 12, 2018}
 
 \section{Notation}
 \begin{itemize}
