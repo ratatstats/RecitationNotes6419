@@ -1,0 +1,315 @@
+---
+title: 'Recitation 9: Networks, Measures of Centrality'
+output:
+  pdf_document: default
+  html_document: default
+header-includes: \usepackage[bottom,flushmargin,hang,multiple]{footmisc}
+---
+
+\makeatletter
+\def\blfootnote{\xdef\@thefnmark{}\@footnotetext}
+\makeatother
+
+```{r setup, include=FALSE}
+library(igraph)
+library(MASS)
+
+color.groups <- function(z, col = tim.colors(50),
+zlim = c(min(z, na.rm = TRUE),
+max(z, na.rm = TRUE))){
+    breaks <- seq(zlim[1], zlim[2], length = length(col) + 1)
+    zgroups <- cut(z, breaks = breaks, labels = FALSE,
+    include.lowest = TRUE)
+    return(col[zgroups])
+}
+
+n = 20
+```
+
+# Running Example: Erdős-Rényi
+
+For an Erdős-Rényi\footnotemark \footnotetext{Fun facts about \href{http://www-history.mcs.st-and.ac.uk/Biographies/Erdos.html}{Paul Erdős} and \href{http://www-groups.dcs.st-and.ac.uk/history/Biographies/Renyi.html}{Alfréd Rényi} \\For a more detailed reference, see \href{http://www.oxfordscholarship.com/view/10.1093/acprof:oso/9780199206650.001.0001/acprof-9780199206650}{\textit{Networks: An Introduction}, Mark Newman} \hfill Joy Yang, November 9, 2018} random graph $G(n,p)$ with $\frac{n(n-1)}{2}$ possible edges, entries in its adjacency matrix $A$ are
+
+$$a_{ij} \sim Bern(p)$$
+
+For an undirected graph, $i<j$ and $a_{ij} = a_{ji}$ We'll use the following graph as a running example:
+
+\vspace{-1.2cm}
+
+```{r,echo=FALSE,out.width='0.7\\textwidth',fig.align='center'}
+set.seed(1000)
+
+p = 0.12
+adjmat.erdosrenyi = matrix(0,n,n)
+adjmat.erdosrenyi[upper.tri(adjmat.erdosrenyi)] = rbinom(choose(n,2),1,p)
+adjmat.erdosrenyi = adjmat.erdosrenyi + t(adjmat.erdosrenyi)
+
+g.erdosrenyi = graph_from_adjacency_matrix(adjmat.erdosrenyi, mode = "undirected")
+
+plot(g.erdosrenyi,layout=layout.kamada.kawai,vertex.color=blues9[4])
+```
+
+\vspace{-2cm}
+
+# Degree Centrality
+
+We'd like to get a sense of how "important" or "influential" each node is in a network.
+
+Idea: count its edges. This is equivalent to multiplying by $x_0 = 1_n$.
+
+\vspace{-1cm}
+
+```{r, echo=FALSE,out.width='0.7\\textwidth',fig.align='center'}
+eigen.erdosrenyi = eigen(adjmat.erdosrenyi)
+
+niters = 30
+x = matrix(0,n,niters)
+x[,1] = rep(1,n)
+for(i in 2:niters){x[,i] = 1/eigen.erdosrenyi$values[1] * adjmat.erdosrenyi %*% x[,i-1]}
+
+co <- layout_with_kk(g.erdosrenyi)
+
+plotpower = function(ith,titleline=-1.5){
+	plot(g.erdosrenyi, layout=co, vertex.size=30, rescale=FALSE,
+		xlim=range(co[,1]), ylim=range(co[,2]), vertex.label.dist=0,
+		vertex.color = ifelse(rep(ith==1,n),blues9[4],color.groups(x[,ith],blues9)))
+	title(main=paste("x",ith-1,sep=""),line=titleline)
+}
+
+par(mfrow=c(1,2),mar=c(0,0,0,0))
+plotpower(1,titleline=-4.5)
+plotpower(2,titleline=-4.5)
+```
+
+\vspace{-1.5cm}
+
+Note that in a directed graph, $Ax_0$ counts all the outgoing edges (row sums) and $A^Tx_0$ counts all the incoming edges (column sums).
+
+What might we be missing with this metric? If you have only a few friends, but your friends have a lot of friends, then maybe you should still be considered an influential node.
+
+# Eigenvalue Centrality
+
+We want to take into account cascading effects. Last week, Abigail talked about graph traversal as multiplying a vector by the adjacency matrix of a graph.
+
+So we can, in a sense, inherit our neighbors' neighbors by looking at $x_2 = A^2 x_0$.
+
+And our neighbors' neighbors' neighbors: $x_3 = A^3 x_0$
+
+In general, $x_k = A^k x_0$. And it turns out that if there exists $m > 0$ such that $A^m > 0$, then, as a result of the Perron-Frobenius Theorem:
+
+$$x_k \rightarrow \alpha \lambda_{max}^k v$$
+\begin{itemize}
+\item $\lambda_{max} \geq 0$ is the largest eigenvalue
+\item $v$ is the unique corresponding eigenvector and has all positive entries
+\item $\alpha$ depends on $x_0$
+\end{itemize}
+
+
+```{r, echo=FALSE,out.width='0.8\\textwidth',fig.align='center'}
+par(mfrow=c(2,4),mar=c(0,0,0,0))
+for(i in 1:7){plotpower(i)}
+v = sum(eigen.erdosrenyi$vectors[,1]*x[,1])*eigen.erdosrenyi$vectors[,1]
+plot(g.erdosrenyi, layout=co, vertex.size=30, rescale=FALSE,
+     xlim=range(co[,1]), ylim=range(co[,2]), vertex.label.dist=0,
+     vertex.color = color.groups(v,blues9))
+title(main="v",line=-1.5)
+```
+
+# Perron-Frobenius Theorem
+
+If A is an $n \times n$ matrix whose entries are greater than or equal to 0 (this is true for adjacency matrices with non-negative edges), then
+
+\begin{itemize}
+\item \textbf{Property 1:} There is a positive real eigenvalue $\lambda_{max} \geq 0$ such that its maginitude is greater than that of all other eigenvalues. $\lambda_{max} > |\lambda|$
+\item \textbf{Property 2:} We can choose an eigenvector $v$, with $||v|| = 1$, to have all entries $v_i \geq 0$
+\item \textbf{Property 3:} $\lambda_{max}$ is an eigenvalue of multiplicity 1
+\end{itemize}
+
+## Applying the Theorem
+
+Let's for now assert this theorem, and use it to show that $x_k \rightarrow \alpha \lambda_{max}^k v$. We will come back to prove it in the next subsection.
+
+To keep things simple, we will only look at the symmetric case (undirected graph) for now.
+
+Recall that for a symmetric real valued matrix $A$, $A = \Gamma \Lambda \Gamma^T$
+
+So to find A^2,
+
+\begin{align*}
+A^2 &= V \Lambda V^T V \Lambda V^T \\
+A^2 &= V \Lambda^2 V^T
+\end{align*}
+
+And in general,
+
+\begin{align*}
+A^k &= V \Lambda^k V^T \\
+A^k &= \lambda_1^k v_1 v_1^T + \lambda_2^k v_2 v_2^T + \dots + \lambda_n^k v_n v_n^T   & \text{rewriting as outer products} \\
+\frac{1}{\lambda_1^k} A^k &= \left(\frac{\lambda_1}{\lambda_1}\right)^k v_1 v_1^T + \left(\frac{\lambda_2}{\lambda_1}\right)^k v_2 v_2^T + \dots + \left(\frac{\lambda_n}{\lambda_1}\right)^k v_n v_n^T \\
+\frac{1}{\lambda_1^k} A^k &\rightarrow v_1 v_1^T & \text{for large k}
+\end{align*}
+
+(Note: In the asymmetric case, it's possible to show that $\frac{1}{\lambda_1} A^k \rightarrow u_1 v_1^T$, where $u_1$ is the left eigenvector corresponding to $\lambda_{max}(A)$, and $v_1$ is the right eigenvector corresponding to  $\lambda_{max}(A)$.\footnotemark \footnotetext{\href{https://www.math.umd.edu/~mboyle/courses/475sp05/spec.pdf}{Link to helpful notes from Mike Boyle}, or \href{https://www.youtube.com/watch?v=eOHSaMcx7QE}{his corresponding lecture}})
+
+Coming back to find $x_k$ for large $k$
+
+\begin{align*}
+x_k &= A^k x_0 \\
+x_k &= \lambda_1 v_1 v_1^T x_0 \\
+x_k &= \lambda_{max} \alpha v \\
+\end{align*}
+
+where $\lambda_{max} = \lambda_1$, $v = v_1$, and $\alpha = v_1^T x_0$
+
+\newpage
+
+## Proof Sketch of Perron-Frobenius for Symmetric $A$
+
+Suppose we have a $\lambda, v$ pair.
+
+$$ Av = \lambda v $$
+A few useful observations\footnotemark \footnotetext{\href{https://ocw.mit.edu/courses/mathematics/18-s096-topics-in-mathematics-with-applications-in-finance-fall-2013/lecture-notes/MIT18_S096F13_lecnote2.pdf}{Link to 18.S096 Notes}, or \href{https://www.youtube.com/watch?v=9YtmGy-wfE4}{or the corresponding lecture}}:
+
+\begin{itemize}
+\item Remember that all entries in A, $a_{ij} \geq 0$.
+  \begin{itemize}
+  \item If all entries of $v \geq 0$, $\lambda \geq 0$.
+  \item If all entries of $v \leq 0$, $\lambda \geq 0$.
+  \item We can only have $\lambda < 0$ if some of the entries of $v$ are positive, and some are negative.
+  \end{itemize}
+\item If $A$ is symmetric, then $max_{||v||=1} | Av | = max_{\lambda} |\lambda|$ . This means that $\lambda_{max}$ must maximize $\frac{||Av||}{||v||}$
+\end{itemize}
+
+To prove the first property, let's assume that the eigenvalue with the greatest magnitude is less than 0. This means its corresponding eigenvector has both positive and negative entries. If we flip the sign on the negative entries in $v$, the denominator $||v||$ doesn't change; however, because $A$ has all positive entries, $||Av||$ increases. So we can get an eigenvalue with a larger magnitude. This is a contradiction.
+
+To prove the second property, we can make a similar argument. Suppose that the eigenvector corresponding to the largest eigenvalue has positive and negative entries. If we flip the signs on the negative entries, we will get a higher eigenvalue. This is a contradiction.
+
+Now, to prove the third property, suppose that we have two eigenvectors $v_1$ and $v_2$ that both correspond to $\lambda_{max}$. $v_1 - v_2$ must also then be an eigenvector for $\lambda_{max}$. However, because $||v_1|| = 1$ and $||v_2|| = 1$, $v_1 - v_2$ must have positive and negative entries. This cannot happen because of the second point. Contradiction!
+
+# Katz Centrality
+
+Last week, Abigail also showed that $x_k \rightarrow 0$ for a DAG, and the eigenvalues for its adjacency matrix must be 0.
+
+```{r, echo=FALSE,out.width='0.9\\textwidth',fig.align='center',fig.height=3}
+set.seed(1000)
+
+p = 0.12
+adjmat.dag = matrix(0,n+5,n+5)
+adjmat.dag[upper.tri(adjmat.dag)] = c(rbinom(choose(n,2),1,p),rep(0,choose(n+5,2)-choose(n,2)))
+adjmat.dag[matrix(c(rep(n,5),n+1:5),5,2)] = 1
+adjmat.dag[20,1] = 1
+
+g.dag = graph_from_adjacency_matrix(adjmat.dag, mode = "directed")
+
+# plot(g.dag,layout=layout.kamada.kawai,vertex.color=blues9[5],edge.arrow.size=0.5)
+
+niters = 30
+x = matrix(0,n+5,niters)
+x[,1] = rep(1,n+5)
+for(i in 2:niters){x[,i] = t(adjmat.dag) %*% x[,i-1]}
+
+co <- layout_with_kk(g.dag)
+
+plotpowerpadded = function(ith,titleline=-3){
+	plot(g.dag, layout=co, vertex.size=30, rescale=FALSE,
+		xlim=range(co[,1]), ylim=range(co[,2]), vertex.label.dist=0,
+		vertex.color = ifelse(rep(ith==1,n+5),blues9[4],
+				      ifelse(rep(all(x[,ith]==0),n+5),"#FFFFFF",
+					     color.groups(x[,ith],blues9))),
+	     edge.arrow.size=0.25)
+	title(main=paste("x",ith-1,sep=""),line=titleline)
+}
+
+par(mfrow=c(1,5),mar=c(0,0,0,0))
+for(i in 1:5){plotpowerpadded(i)}
+```
+
+\newpage
+
+We can fix this by giving every node some small amount of centrality for free.
+
+$$ x_{k+1} = \alpha A x_k + \beta $$
+
+At convergence, 
+
+\begin{align*}
+v &= \alpha A v + \beta \\
+v &= (I - \alpha A)^{-1} \beta
+\end{align*}
+
+\vspace{-0.5cm}
+
+```{r, echo=FALSE,out.width='0.9\\textwidth',fig.align='center',fig.height=2.5}
+niters = 30
+x = matrix(0,n+5,niters)
+x[,1] = rep(1,n+5)
+for(i in 2:niters){x[,i] = 0.3 * t(adjmat.dag) %*% x[,i-1] + rep(0.1,n+5)}
+
+co <- layout_with_kk(g.dag)
+
+par(mfrow=c(1,5),mar=c(0,0,0,0))
+for(i in 1:5){plotpowerpadded(i)}
+```
+
+\vspace{-1.5cm}
+
+# Page Rank
+
+In Katz Centrality, if a webpage with high in-degree, it's downstream nodes will have high centrality. If it is very generous with it's outgoing links, do we really believe that all of these downstream nodes are important? Are people really likely to follow all of these edges? In fact this property means it could be easy to "game the system" if you can convince a node with high degree to link to you.
+
+Google's Page Rank algorithm seeks to fix this by diluting the centrality propagated to downstream nodes by the outdegree of the node.
+
+$$ x_{k+1} = \alpha A D^{-1} x_k + \beta $$
+
+where $D$ is a diagonal matrix with outdegrees of each node on the diagonal.
+
+\begin{align*}
+v &= \alpha A v + \beta \\
+v &= (I - \alpha A D^{-1})^{-1} \beta
+\end{align*}
+
+\vspace{-0.5cm}
+
+```{r, echo=FALSE,out.width='0.9\\textwidth',fig.align='center',fig.height=2.5}
+niters = 30
+x = matrix(0,n+5,niters)
+x[,1] = rep(1,n+5)
+DOut =  apply(adjmat.dag,1,sum)
+DOut[DOut==0] = 1
+for(i in 2:niters){x[,i] = 0.3 * t(adjmat.dag) %*% diag(1/DOut) %*% x[,i-1] + rep(0.1,n+5)}
+
+co <- layout_with_kk(g.dag)
+
+par(mfrow=c(1,5),mar=c(0,0,0,0))
+for(i in 1:5){plotpowerpadded(i)}
+```
+
+\vspace{-1.5cm}
+
+# Your friends have more friends than you
+
+Why? Here's a simple illustrative case - what is the probability that you have 0 "friends"? This is non-zero. However, what is the probability of your "friend" having 0 "friends"? This must be 0, because your friend has at least one friend: you.
+
+More formally, let's show this with the Configuration Model from lecture. Let
+
+$p_k$ be the probability that you have $k$ friends, and
+
+$q_k$ be the probability that your friend has $k$ friends.
+
+If you follow an edge out of your node, the probability that it lands on a particular node with degree $k$ is $\frac{k}{2m-1}$, where $m$ is the number of edges (so there are $2m$ stubs total, and since you already used a stub to trace an edge out of, there are $2m-1$ stubs left that you can end on). But for large $m$, we can drop the $-1$
+
+And the number of nodes with degree $k$ is $np_k$. So,
+
+Recall also that $\Sigma_i k_i = 2m = nE(K)$
+
+$q_k = \frac{k}{2m} n p_k = \frac{k}{nE(K)} n p_k = \frac{kp_k}{E(K)}$
+
+So the expected degree of your neighbor is
+
+$E(K_N) = \Sigma_k k q_k = \Sigma_k k \frac{kp_k}{E(K)} = \frac{1}{E(K)} \Sigma_k k^2 p_k = \frac{E(K^2)}{E(K)}$
+
+And finally, the difference between the number of friends that your friends have and the number of friends that you have is
+
+$E(K_N) - E(K) = \frac{E(K^2)}{E(K)} - E(K) = \frac{1}{E(K)} (E(K^2) - E(K)^2)$
+
+The quantity in the parentheses is $Var(K)$, which must be greater than or equal to 0. Therefore, this difference must be positive, and your friends must on average, have more friends than you do.

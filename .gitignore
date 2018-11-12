@@ -1,0 +1,6 @@
+*.synctex.gz
+*.log
+*.aux
+*.temp.*
+LinearAlgebraReview.*
+.DS_Store

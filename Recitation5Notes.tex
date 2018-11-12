@@ -1,0 +1,245 @@
+\documentclass[12pt]{article}
+\usepackage{amsfonts, mathtools, mathrsfs, amssymb, graphicx, graphics, subfigure, lscape,enumerate, multirow, natbib}
+\usepackage[margin=1in]{geometry}
+\usepackage[bottom,flushmargin,hang,multiple]{footmisc}
+\usepackage{etoolbox}
+
+\makeatletter
+\patchcmd\maketitle{\hb@xt@1.8em}{\hbox}{}{}
+\makeatother
+
+\makeatletter
+\def\blfootnote{\xdef\@thefnmark{}\@footnotetext}
+\makeatother
+
+\newcommand{\rank}{\ensuremath{\text{rank}}}
+\newcommand{\nullity}{\ensuremath{\text{nullity}}}
+
+\newcommand{\icol}[1]{% inline column vector
+	\left(\begin{smallmatrix}#1\end{smallmatrix}\right)%
+}
+\newcommand{\iicol}[1]{% inline column vector
+	\left[\begin{smallmatrix}#1\end{smallmatrix}\right]%
+}
+
+
+\title{Recitation 5: More Multivariate Normal}
+\date{}
+\author{}
+
+\begin{document}
+
+\maketitle	
+
+\vspace{-30pt}
+
+\section{Representations, roughly}
+\begin{itemize}
+	\item Distributions are typically defined by functions (such as density functions, characteristic functions, moments, etc.)
+	\item However, we can also represent a density in terms of other random variables\footnotemark \footnotetext{Blitzstein and Morris (upcoming book)  \hfill Joy Yang, October 12, 2018}
+	\item If you're an algorithms buff, this is somewhat analogous to reducing a seemingly complicated problem to a problem in P and then realizing that there's a simple solution
+\end{itemize}
+
+\section{Representation of Multivariate Normal}
+\begin{itemize}
+	\item $y$ is Multivariate normal, or 
+	$$y \sim N(\mu, \Sigma)$$
+	if we can write 
+	\begin{equation*}
+	\underset{k\times 1}{y} =  \underset{k\times m}{A} \  
+	\underset{m\times 1}{z} + \underset{k\times 1}{\mu}
+	\end{equation*}
+	$$z_i \sim N(0,1) \text{ ,\ \ and \ \ } \Sigma = AA^T$$
+	Note that this means $z \sim N(0,I_{m \times m})$
+	
+	It's easy to show that this definition is equivalent to the function definitions of MVN.
+	
+	\item \textbf{Question:} Using its representation, find the mean and variance of $y$
+\end{itemize}
+
+\begin{align*}
+	E(y) &= E(Az + \mu) \\
+		 &= AE(z) + \mu \\
+		 &= \mu
+\end{align*}
+
+\begin{align*}
+ Var(y) &= Var(Az + \mu) \\
+		&= A\ Var(z)\ A^T + 0 \\
+		&= AA^T
+\end{align*}
+
+\newpage
+
+\section{Linear Combinations of MVN}
+\begin{itemize}
+	\item \textbf{Question:} Are linear combinations of MVN random variables MVN themselves?
+	\begin{align*}
+	y^* &= By \\
+	&= B(Az + \mu) \\
+	&= BAz + B \mu
+	\end{align*}
+	
+	Note that this is now in the form of a MVN random variable,
+	\begin{align*}
+	y^* &\sim N(B\mu, B A A^T B^T) \\
+	y^* &\sim N(B\mu, B \Sigma B^T)
+	\end{align*}	
+\end{itemize}
+
+\newpage
+
+\section{Subvectors of MVN}
+\begin{itemize}
+	\item Last week, Jennifer showed that subvectors of MVN are, themselves MVN
+	\begin{equation*}
+	y = \left[ \begin{array}{c} y_1 \\ y_2 \end{array} \right] \sim N \left(
+	\left[ \begin{array}{c} \mu_1 \\ \mu_2 \end{array} \right],
+	\left[
+	\begin{array}{cc}
+	\Sigma_{11} & \Sigma_{12} \\
+	\Sigma_{21} & \Sigma_{22}
+	\end{array}
+	\right]
+	\right)
+	\end{equation*}
+	implies that $$y_1 \sim N(\mu_1, \Sigma_{11})$$
+	
+	\item Showing this required marginalizing out $y_2$
+	$$P(y_1) = \int P(y_1,y_2) \ d y_2$$
+	This got real involved real fast. We needed to work with block matrix inverses, somewhere, we did a vector complete-the-square, and then somehow, after pages of work, the integral turned out to be 1, and the constants we pulled out of the integral turned out to specify an MVN.\footnote{A nice reference: http://cs229.stanford.edu/section/more\_on\_gaussians.pdf}
+	
+	\item \textbf{Question:} Derive the above property using the representation of $y$.
+	
+	Hint: Can we write $y_1$ as a linear combination of $y$?
+	$$y_1 = \left[ I \ 0\right] y $$
+	So, $y_1$ is MVN
+	\begin{align*}
+		y_1 &\sim N (\left[ I \ 0\right] \mu, \left[ I \ 0\right] \Sigma \left[ I \ 0\right]^T) \\
+		y_1 &\sim N(\mu_1, \Sigma_{11})
+	\end{align*}
+	
+	
+\end{itemize}
+
+
+
+
+\newpage
+
+\section{The Uncorrelation Trick}
+
+\begin{itemize}
+	\item Last week, Jennifer also showed that conditional distributions of MVN are MVN
+	\begin{equation*}
+	y = \left[ \begin{array}{c} y_1 \\ y_2 \end{array} \right] \sim N \left(
+	\left[ \begin{array}{c} \mu_1 \\ \mu_2 \end{array} \right],
+	\left[
+	\begin{array}{cc}
+	\Sigma_{11} & \Sigma_{12} \\
+	\Sigma_{21} & \Sigma_{22}
+	\end{array}
+	\right]
+	\right)
+	\end{equation*}
+	implies that $$y_2 | y_1 \sim N(\mu^*, \Sigma^*)$$
+	\begin{align*}
+	\text{where \ \ } \mu^* &= \mu_2 + \Sigma_{21} \Sigma_{11}^{-1} (y_1 - \mu_1) \\
+	 \Sigma^* &= \Sigma_{22} - \Sigma_{21} \Sigma_{11}^{-1} \Sigma_{12}
+	\end{align*}	
+	\item Showing this required using the law of conditional probabilities
+	$$P(y_2 | y_1) = \frac{P(y_1, y_2)}{P(y_1)}$$
+	Again, this got real involved real fast. We again needed to use block matrix inverses, complete-the-square, etc.
+	\item Instead, today, we'll show this using the ``uncorrelation trick"\footnote{Blitzstein \& Morris, upcoming book; other handy references: \textit{Multivariate Analysis} (Mardia, Kent, Bibby), or Stanford Stat 306 Notes - http://statweb.stanford.edu/~lpekelis/306a/}:
+	
+	We can write $y_2$ in terms of $y_1$ and $y_{2 \cdot 1}$, a centered MVN that's independent of $y_1$
+	\begin{equation*}
+	y_2 =  \underset{\text{independent of }y_1}{y_{2 \cdot 1} + \mu_2} + \underset{\text{function of }y_1}{B(y_1 - \mu_1)}
+	\end{equation*}
+	But what is $B$?
+	\begin{align*}
+		cov(y_2,y_1) &= cov(y_{2 \cdot 1} + \mu_2 + B(y_1 - \mu_1), y_1) \\
+		cov(y_2,y_1) &= B cov(y_1, y_1) \\
+		\Sigma_{21} &= B \Sigma_{11} \\
+		B &= \Sigma_{21} \Sigma_{11}^{-1} 
+	\end{align*}
+	In lecture, Stefanie mentioned a few times that getting this term is like doing linear regression. We're essentially regressing $y_2$ against $y_1$.
+	
+	Taking $\tilde{y}_1 = y_1 - \mu_1$ and $\tilde{y}_2 = y_2 - \mu_2$, we can write down a model
+	\begin{align*}
+	\tilde{y}_2 &= B\tilde{y}_1 + \epsilon
+	\end{align*}
+	This leads us to the interpretation that $y_{2 \cdot 1}$ is then the residual $\epsilon$ after linear regression
+	
+	And the least squares solution for B (see section 2 notes) is
+	\begin{align*}
+	B &= \tilde{y}_2 \tilde{y}_1^T (\tilde{y}_1 \tilde{y}_1^T)^{-1} \\
+	  &= \Sigma_{21} \Sigma_{11}^{-1}
+	\end{align*}
+\end{itemize}
+
+\section{Conditional Distributions}
+\begin{itemize}
+	\item Reminding ourselves of the uncorrelation trick:
+	$$y_2 =  \underset{\text{independent of }y_1}{y_{2 \cdot 1} + \mu_2} + \underset{\text{function of }y_1}{B(y_1 - \mu_1)}$$
+	In light of this decomposition, $y_2 | y_1$ must be MVN.
+	\item It's straightforward now to find the conditional expectation and variance
+	\begin{align*}
+		E(y_2 | y_1) &= E(y_{2 \cdot 1} + \mu_2 + B(y_1 - \mu_1) \ | \ y_1) \\
+					&= E(y_{2 \cdot 1} | y_1) + \mu_2 + B(E(y_1 | y_1) - \mu_1) \\
+					&= \mu_2 + \Sigma_{21} \Sigma_{11}^{-1} (y_1 - \mu_1)
+	\end{align*}
+	\begin{align*}
+	Var(y_2 | y_1) &= Var(y_{2 \cdot 1} + \mu_2 + B(y_1 - \mu_1) \ |\  y_1) \\
+	&= Var(y_{2 \cdot 1} | y_1) + Var(\mu_2 + B(y_1 - \mu_1) | y_1) \\
+	&= Var(y_{2 \cdot 1})
+	\end{align*}
+	So now, in order to find $Var(y_2 | y_1)$, we just need to find $Var(y_{2\cdot1})$
+	\begin{align*}
+		Var(y_2) &= Var(y_{2 \cdot 1} + \mu_2 + B(y_1 - \mu_1)) \\
+		Var(y_2) &= Var(y_{2 \cdot 1}) + BVar(y_11)B^T \\
+		\Sigma_{22} &= Var(y_{2 \cdot 1}) + \Sigma_{21} \Sigma_{11}^{-1} \Sigma_{11} \Sigma_{11}^{-1} \Sigma_{12} \\
+		Var(y_{2 \cdot 1}) &= \Sigma_{22} - \Sigma_{21} \Sigma_{11}^{-1} \Sigma_{12}
+	\end{align*}
+	And so plugging this back in
+	$$Var(y_2 | y_1) = \Sigma_{22} - \Sigma_{21} \Sigma_{11}^{-1} \Sigma_{12}$$
+\end{itemize}
+
+\newpage
+
+\section{Sherman-Morrison-Woodbury Formula}
+\begin{itemize}
+	\item This might come in handy for your problem sets depending on what route you choose to go for the first question
+	\item The formula:
+	$$ (Z + UWV^T)^{-1} = Z^{-1} - Z^{-1}U(W^{-1} + V^T Z^{-1} U)^{-1} V^T Z^-1 $$
+	\item Applications: Recursive least squares, low rank decompositions, etc. Here's a very short application, just to show how it can be useful.
+	\item \textbf{Example:} Matrix perturbations
+		
+	Suppose the inverse of a matrix $A$ is known.
+	
+	We perturb each element to get a new matrix $B$
+	\begin{align*}
+		B_{ij} &= A_{ij} + \Delta x_i \Delta y_i \\
+		B &= A + xy^T
+	\end{align*}
+	As a simple, concrete example, perhaps
+	\begin{align*}
+	x = \left[ \begin{array}{c}
+	0 \\ 0 \\ 1 \\ 0
+	\end{array}\right]
+	\text{\ \ and \ \ }
+	y = \left[ \begin{array}{c}
+	1 \\ 0 \\ 0 \\ 0
+	\end{array}\right]
+	\text{\ \ then the perturbation matrix is \ \ }
+	y = \left[ \begin{array}{cccc}
+	0 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0 \\ 1 & 0 & 0 & 0 \\ 0 & 0 & 0 & 0
+	\end{array}\right]
+	\end{align*}
+	If we want to invert B, we don't need to re-compute the entire matrix inverse. Instead, just plug into the Woodbury formula:
+	$$B^{-1} = A^{-1} - A^{-1}x(1 + y^T A^{-1} x)^{-1} y^T A^{-1}$$
+	Notice, $(1 + y^T A^{-1} x)$ is a scalar (in this case, it's simply $1$), so that's easy to invert.
+
+\end{itemize}
+
+\end{document}
